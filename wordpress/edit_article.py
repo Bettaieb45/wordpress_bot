@@ -3,10 +3,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-import utils.retry as retry
+from utils.retry import retry
 from utils.logger import log
 from config import driver
-import utils.append_csv as write_results_to_csv_row
+from utils.append_csv import write_results_to_csv_row
 
 ## I need the driver from conifg.py file
 
