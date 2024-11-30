@@ -5,5 +5,7 @@ wordpress_cookies.pkl
 /wordpress/__pycache__
 /utils/__pycache__
 .~lock.Update_Report.csv#
+.~lock.Test - GW - Sheet1.csv#
 .env
+Update_Report (Copy).csv
 

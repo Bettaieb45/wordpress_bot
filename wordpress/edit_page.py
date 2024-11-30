@@ -8,6 +8,7 @@ from utils.retry import retry
 from utils.logger import log
 from config import driver 
 from utils.append_csv import write_results_to_csv_row
+from utils.trim_href import get_domain_and_append_path
 def handle_edit_page(page_url, anchors, csv_file):
     log(f"Processing 'Edit Page' for Gutenberg: {page_url}")
     try:
@@ -41,7 +42,8 @@ def process_gutenberg_page(page_url, anchors, csv_file):
             anchor_text = anchor["Anchor Text"]
             broken_href = anchor["Broken HREF"]
             new_href = anchor["New Href"]
-
+            trimmed_broken_href = get_domain_and_append_path(broken_href)
+            print(f"trimmed_broken_href: {trimmed_broken_href}")
             # Normalize URLs and update them using JavaScript
             js_script = f"""
             let status = "Not found";
@@ -53,7 +55,13 @@ def process_gutenberg_page(page_url, anchors, csv_file):
                     // Trigger WordPress change detection
                     const events = ['input', 'change'];
                     events.forEach(event => field.dispatchEvent(new Event(event, {{ bubbles: true }})));
-                }} else if (normalize(field.value) === normalize("{new_href}")) {{
+                }} else if (normalize(field.value) === normalize("{trimmed_broken_href}")) {{
+                    field.value = "{new_href}";
+                    status = "Updated";
+                    // Trigger WordPress change detection
+                    const events = ['input', 'change'];
+                    events.forEach(event => field.dispatchEvent(new Event(event, {{ bubbles: true }})));
+                }}else if (normalize(field.value) === normalize("{new_href}")) {{
                     status = "Already updated";
                 }}
             }});
@@ -73,7 +81,16 @@ def process_gutenberg_page(page_url, anchors, csv_file):
                             const events = ['input', 'change', 'blur', 'keyup', 'mousedown', 'mouseup', 'focus'];
                             events.forEach(event => anchor.dispatchEvent(new Event(event, {{ bubbles: true }})));
                             status = "Updated";
-                        }} else if (anchor.href.trim() === "{new_href}") {{
+                        }} else if (anchor.href.trim() === "{trimmed_broken_href}") {{
+                            // Update the link
+                            const newHref = "{new_href}";
+                            anchor.href = newHref;
+                            anchor.setAttribute("data-mce-href", newHref);
+                            // Trigger WordPress change detection
+                            const events = ['input', 'change', 'blur', 'keyup', 'mousedown', 'mouseup', 'focus'];
+                            events.forEach(event => anchor.dispatchEvent(new Event(event, {{ bubbles: true }})));
+                            status = "Updated";
+                        }}else if (anchor.href.trim() === "{new_href}") {{
                             // Already updated
                             status = "Already updated";
                         }}
@@ -119,6 +136,7 @@ def process_gutenberg_page(page_url, anchors, csv_file):
         # Save changes if any link was updated
         if (there_is_an_update):
             log(f"Updating page: {page_url}")
+            
             retry(lambda: WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Save')]"))
             ).click())

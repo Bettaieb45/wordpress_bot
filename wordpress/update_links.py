@@ -38,9 +38,23 @@ def update_links(posts_dict, output_csv_path):
                 retry(lambda: edit_page_buttons[0].click())
                 handle_edit_page(page_url, anchors, csv_file)
                 continue  # Move to the next page after processing
-
+        # Check for "Edit Plant Records" button
+            edit_plant_record_buttons = driver.find_elements(By.LINK_TEXT, "Edit Plant Records")
+            if edit_plant_record_buttons:
+                log(f"'Edit Plant Records' button found for {page_url}.")
+                retry(lambda: edit_plant_record_buttons[0].click())
+                handle_edit_article(page_url, anchors, csv_file)
+                continue
+        # Check for "Edit List" button
+            edit_list_buttons = driver.find_elements(By.LINK_TEXT, "Edit List")
+            if edit_list_buttons:
+                log(f"'Edit List' button found for {page_url}.")
+                retry(lambda: edit_list_buttons[0].click())
+                handle_edit_article(page_url, anchors, csv_file)
+                continue
+        
         # If neither button is found
-            log(f"No 'Edit Article' or 'Edit Page' button found for {page_url}. Skipping page.")
+            log(f"No 'Edit Article' , 'Edit Page','Edit Plant Records' or 'Edit List' button found for {page_url}. Skipping page.")
             for anchor in anchors:
                     write_results_to_csv_row({
                         "Page URL": page_url,
