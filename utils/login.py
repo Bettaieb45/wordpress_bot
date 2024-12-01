@@ -6,7 +6,7 @@ from utils.logger import log
 import os
 import pickle
 from config import COOKIE_FILE, driver,login_url
-import utils.wait as wait_for_element
+from utils.wait import wait_for_element
 # Google Authenticator OTP input
 def get_google_authenticator_code_from_user():
     return input("Enter the Google Authenticator code: ")

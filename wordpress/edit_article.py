@@ -30,7 +30,6 @@ def handle_edit_article(page_url, anchors, csv_file):
             broken_href = anchor["Broken HREF"]
             new_href = anchor["New Href"]
             trimmed_broken_href = get_domain_and_append_path(broken_href)
-            print(f"trimmed_broken_href: {trimmed_broken_href}")
             js_script = f"""
             let status = "Not found";
             document.querySelectorAll('a').forEach(anchor => {{
