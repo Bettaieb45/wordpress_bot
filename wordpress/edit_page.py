@@ -33,7 +33,7 @@ def process_gutenberg_page(page_url, anchors, csv_file):
         WebDriverWait(driver, 20).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "input[type='text']"))
         )
-        time.sleep(3)  # Fallback wait to ensure all dynamic elements are rendered
+        time.sleep(1)  # Fallback wait to ensure all dynamic elements are rendered
         log("ACF fields are visible and the page is fully loaded.")
 
         # Use JavaScript to dynamically search and update ACF fields
@@ -140,8 +140,10 @@ def process_gutenberg_page(page_url, anchors, csv_file):
             retry(lambda: WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Save')]"))
             ).click())
+            WebDriverWait(driver, 20).until(
+                EC.text_to_be_present_in_element((By.CSS_SELECTOR, ".components-snackbar__content"), "Page updated.")
+            )
             log(f"Page updated for {page_url}")
-            time.sleep(5)
         else:
             log(f"No changes made to the page: {page_url}")
 

@@ -42,7 +42,8 @@ def handle_edit_article(page_url, anchors, csv_file):
             broken_href = anchor["Broken HREF"]
             new_href = anchor["New Href"]
             trimmed_broken_href = get_domain_and_append_path(broken_href)
-
+            trimed_new_href=get_domain_and_append_path(new_href)
+            print(f"trimmed broken href",trimmed_broken_href)
             # Process all matching links in the page
             matched = False
             for page_anchor in anchors_on_page:
@@ -72,7 +73,7 @@ def handle_edit_article(page_url, anchors, csv_file):
                         break
                     elif current_href == new_href:
                         matched = True
-                        log(f"'{anchor_text}' with href '{new_href}' is already updated.")
+                        log(f"'{anchor_text}' with href '{new_href,trimed_new_href}' is already updated.")
                         link_updates.append({
                             "Page URL": page_url,
                             "Anchor Text": anchor_text,
