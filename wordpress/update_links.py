@@ -16,6 +16,7 @@ def update_links(posts_dict, output_csv_path):
         {"text": "Edit Page", "handler": handle_edit_page},
         {"text": "Edit Plant Records", "handler": handle_edit_article},
         {"text": "Edit List", "handler": handle_edit_article},
+        {"text": "Edit Reviews", "handler": handle_edit_article},
     ]
 
     with open(output_csv_path, 'a', newline='') as csv_file:

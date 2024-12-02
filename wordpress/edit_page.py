@@ -46,7 +46,7 @@ def process_gutenberg_page(page_url, anchors, csv_file):
             print(f"trimmed_broken_href: {trimmed_broken_href}")
             # Normalize URLs and update them using JavaScript
             js_script = f"""
-            let status = "Not found";
+            let status = "HREF not found";
             document.querySelectorAll('input[type="text"]').forEach(field => {{
                 let normalize = (url) => url.replace(/\\/$/, '');  // Remove trailing slash
                 if (normalize(field.value) === normalize("{broken_href}")) {{
@@ -94,6 +94,8 @@ def process_gutenberg_page(page_url, anchors, csv_file):
                             // Already updated
                             status = "Already updated";
                         }}
+                    }}else {{
+                        status ="anchor text not in the page";
                     }}
                 }});
                 }});
@@ -128,7 +130,7 @@ def process_gutenberg_page(page_url, anchors, csv_file):
                     "Anchor Text": anchor_text,
                     "Broken HREF": broken_href,
                     "New HREF": new_href,
-                    "Status": "Not found"
+                    "Status": status
             }
             write_results_to_csv_row(result_row, csv_file)
 

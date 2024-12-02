@@ -36,18 +36,18 @@ def handle_edit_article(page_url, anchors, csv_file):
         return updates;
         """
         anchors_on_page = driver.execute_script(js_script)
-        print(anchors_on_page)
         for anchor in anchors:
             anchor_text = anchor["Anchor Text"]
             broken_href = anchor["Broken HREF"]
             new_href = anchor["New Href"]
             trimmed_broken_href = get_domain_and_append_path(broken_href)
             trimed_new_href=get_domain_and_append_path(new_href)
-            print(f"trimmed broken href",trimmed_broken_href)
             # Process all matching links in the page
             matched = False
+            same_anchor = False
             for page_anchor in anchors_on_page:
                 if page_anchor['text'] == anchor_text:
+                    same_anchor = True
                     current_href = page_anchor['href']
                     if current_href in {broken_href, trimmed_broken_href}:
                         matched = True
@@ -82,15 +82,25 @@ def handle_edit_article(page_url, anchors, csv_file):
                             "Status": "Already updated"
                         })
                         break
+                
 
             if not matched:
-                log(f"No matching anchor text or broken href found for '{anchor_text}' on {page_url}.")
+                log(f"No matching broken href found for '{anchor_text}' on {page_url}.")
                 link_updates.append({
                     "Page URL": page_url,
                     "Anchor Text": anchor_text,
                     "Broken HREF": broken_href,
                     "New HREF": new_href,
-                    "Status": "Not found"
+                    "Status": "HREF not found"
+                })
+            elif not matched and not same_anchor:
+                log(f"Anchor text '{anchor_text}' not found in the page.")
+                link_updates.append({
+                    "Page URL": page_url,
+                    "Anchor Text": anchor_text,
+                    "Broken HREF": broken_href,
+                    "New HREF": new_href,
+                    "Status": "anchor text not in the page"
                 })
 
         # Write all results to the CSV in one go
