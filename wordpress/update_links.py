@@ -8,7 +8,8 @@ from config import driver
 from wordpress.edit_page import handle_edit_page
 from wordpress.edit_article import handle_edit_article
 from utils.append_csv import write_results_to_csv_row
-
+import time
+from utils.nordvpn import reconnect_to_nordvpn  # Assuming you have a function for NordVPN reconnect
 
 def update_links(posts_dict, output_csv_path):
     button_actions = [
@@ -18,7 +19,9 @@ def update_links(posts_dict, output_csv_path):
         {"text": "Edit List", "handler": handle_edit_article},
         {"text": "Edit Reviews", "handler": handle_edit_article},
     ]
-
+    start_time = time.time()
+    reconnect_to_nordvpn()  # Reconnect to NordVPN
+    time.sleep(5)  # Pause for 5 seconds
     with open(output_csv_path, 'a', newline='') as csv_file:
         fieldnames = ["Page URL", "Anchor Text", "Broken HREF", "New HREF", "Status"]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -66,3 +69,10 @@ def update_links(posts_dict, output_csv_path):
                         "New HREF": anchor["New Href"],
                         "Status": "Not identifiable"
                     }, csv_file)
+            # Check elapsed time for 5-minute interval
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= 300:  # 5 minutes
+                log("Pausing for 5 seconds and reconnecting NordVPN...")
+                reconnect_to_nordvpn()  # Reconnect to NordVPN
+                time.sleep(5)  # Pause for 5 seconds
+                start_time = time.time()  # Reset the timer
