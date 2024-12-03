@@ -19,9 +19,9 @@ def update_links(posts_dict, output_csv_path):
         {"text": "Edit List", "handler": handle_edit_article},
         {"text": "Edit Reviews", "handler": handle_edit_article},
     ]
+    max_retries = 5  # Max number of retries after reconnecting VPN
     start_time = time.time()
-    reconnect_to_nordvpn()  # Reconnect to NordVPN
-    time.sleep(5)  # Pause for 5 seconds
+
     with open(output_csv_path, 'a', newline='') as csv_file:
         fieldnames = ["Page URL", "Anchor Text", "Broken HREF", "New HREF", "Status"]
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -29,22 +29,44 @@ def update_links(posts_dict, output_csv_path):
 
         for page_url, anchors in posts_dict.items():
             log(f"Processing page: {page_url}")
-            driver.get(page_url)
+            retries = 0
 
-            try:
-                # Wait for the page to load (configurable timeout)
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
-                )
-            except Exception as e:
-                log(f"Page failed to load for {page_url}: {e}")
+            while retries < max_retries:
+                try:
+                    driver.get(page_url)
+
+                    # Wait for the page to load (configurable timeout)
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "body"))
+                    )
+
+                    # Check for specific 406 error or connection lost indicators
+                    if "406 Not Acceptable" in driver.page_source:
+                        log(f"406 error detected for {page_url}. Reconnecting VPN and retrying...")
+                        reconnect_to_nordvpn()  # Reconnect VPN
+                        retries += 1
+                        time.sleep(10)  # Allow VPN to reconnect
+                        continue
+                    
+                    # If no issues, break the retry loop
+                    break
+
+                except Exception as e:
+                    log(f"Error loading page {page_url}: {e}")
+                    retries += 1
+                    reconnect_to_nordvpn()  # Reconnect VPN in case of persistent errors
+                    time.sleep(10)
+
+            # If max retries reached, log the failure and move to the next page
+            if retries == max_retries:
+                log(f"Failed to load {page_url} after {max_retries} retries with VPN reconnections.")
                 for anchor in anchors:
                     write_results_to_csv_row({
                         "Page URL": page_url,
                         "Anchor Text": anchor["Anchor Text"],
                         "Broken HREF": anchor["Broken HREF"],
                         "New HREF": anchor["New Href"],
-                        "Status": "Page load failed"
+                        "Status": "Failed after VPN retries"
                     }, csv_file)
                 continue
 
@@ -69,10 +91,11 @@ def update_links(posts_dict, output_csv_path):
                         "New HREF": anchor["New Href"],
                         "Status": "Not identifiable"
                     }, csv_file)
+
             # Check elapsed time for 5-minute interval
             elapsed_time = time.time() - start_time
             if elapsed_time >= 300:  # 5 minutes
                 log("Pausing for 5 seconds and reconnecting NordVPN...")
                 reconnect_to_nordvpn()  # Reconnect to NordVPN
-                time.sleep(5)  # Pause for 5 seconds
+                time.sleep(10)  # Pause for 10 seconds
                 start_time = time.time()  # Reset the timer
