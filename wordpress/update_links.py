@@ -20,7 +20,6 @@ def update_links(posts_dict, output_csv_path):
         {"text": "Edit Reviews", "handler": handle_edit_article},
     ]
     max_retries = 5  # Max number of retries after reconnecting VPN
-    start_time = time.time()
 
     with open(output_csv_path, 'a', newline='') as csv_file:
         fieldnames = ["Page URL", "Anchor Text", "Broken HREF", "New HREF", "Status"]
@@ -92,10 +91,4 @@ def update_links(posts_dict, output_csv_path):
                         "Status": "Not identifiable"
                     }, csv_file)
 
-            # Check elapsed time for 5-minute interval
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= 300:  # 5 minutes
-                log("Pausing for 5 seconds and reconnecting NordVPN...")
-                reconnect_to_nordvpn()  # Reconnect to NordVPN
-                time.sleep(10)  # Pause for 10 seconds
-                start_time = time.time()  # Reset the timer
+            

@@ -7,6 +7,8 @@ import os
 import pickle
 from config import COOKIE_FILE, driver,login_url
 from utils.wait import wait_for_element
+from utils.get_domain import get_domain
+domain_login=get_domain(login_url)
 # Google Authenticator OTP input
 def get_google_authenticator_code_from_user():
     return input("Enter the Google Authenticator code: ")
@@ -22,7 +24,7 @@ def login_to_wordpress(username, password):
         with open(COOKIE_FILE, "rb") as cookie_file:
             cookies = pickle.load(cookie_file)
             for cookie in cookies:
-                cookie['domain'] = ".gardenersworld.production.wcp.imdserve.com"  # Ensure domain is set
+                cookie['domain'] = domain_login
                 driver.add_cookie(cookie)
 
         # Refresh and check if session is valid

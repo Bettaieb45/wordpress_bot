@@ -6,7 +6,8 @@ from utils.logger import log
 from config import driver
 from utils.append_csv import write_results_to_csv_row
 from utils.trim_href import get_domain_and_append_path
-
+import time
+from utils.normalize import normalize_text
 
 def handle_edit_article(page_url, anchors, csv_file):
     log(f"Processing 'Edit Article' page: {page_url}")
@@ -18,7 +19,8 @@ def handle_edit_article(page_url, anchors, csv_file):
         )
         driver.switch_to.frame(iframe)
         log("Switched to the editor iframe.")
-
+        
+        time.sleep(2)
         links_updated = False
         link_updates = []  # To collect results for CSV writing
 
@@ -39,17 +41,25 @@ def handle_edit_article(page_url, anchors, csv_file):
         for anchor in anchors:
             anchor_text = anchor["Anchor Text"]
             broken_href = anchor["Broken HREF"]
+            trimmed_current_href = get_domain_and_append_path(broken_href)
             new_href = anchor["New Href"]
-            trimmed_broken_href = get_domain_and_append_path(broken_href)
-            trimed_new_href=get_domain_and_append_path(new_href)
+            trimmed_new_href = get_domain_and_append_path(new_href)
+            print(f"Broken href: {broken_href}")
+            print(f"New href: {new_href}")
+            print(f"Trimmed broken href: {trimmed_current_href}")
+            print(f"Trimmed new href: {trimmed_new_href}")
+            
             # Process all matching links in the page
             matched = False
             same_anchor = False
             for page_anchor in anchors_on_page:
-                if page_anchor['text'] == anchor_text:
+                if normalize_text(page_anchor['text']) == normalize_text(anchor_text):
                     same_anchor = True
                     current_href = page_anchor['href']
-                    if current_href in {broken_href, trimmed_broken_href}:
+                    trimmed_current_href = get_domain_and_append_path(current_href)
+                    print(f"Current href: {current_href}")
+                    print(f"Trimmed current href: {trimmed_current_href}")
+                    if current_href in {broken_href,trimmed_current_href} or trimmed_current_href in {broken_href,trimmed_current_href}:
                         matched = True
                         # Update the link
                         driver.execute_script("""
@@ -71,9 +81,9 @@ def handle_edit_article(page_url, anchors, csv_file):
                             "Status": "Updated"
                         })
                         break
-                    elif current_href == new_href:
+                    elif current_href in {new_href,trimmed_new_href} or trimmed_new_href in {new_href,trimmed_new_href}:
                         matched = True
-                        log(f"'{anchor_text}' with href '{new_href,trimed_new_href}' is already updated.")
+                        log(f"'{anchor_text}' with href '{new_href}' is already updated.")
                         link_updates.append({
                             "Page URL": page_url,
                             "Anchor Text": anchor_text,
