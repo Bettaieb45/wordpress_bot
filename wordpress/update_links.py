@@ -42,10 +42,17 @@ def update_links(posts_dict, output_csv_path):
                     # Check for specific 406 error or connection lost indicators
                     if "406 Not Acceptable" in driver.page_source:
                         log(f"406 error detected for {page_url}. Reconnecting VPN and retrying...")
-                        reconnect_to_nordvpn()  # Reconnect VPN
-                        retries += 1
                         time.sleep(10)  # Allow VPN to reconnect
+                        #reload page 
+                        driver.get(page_url)
                         continue
+                    #page not working error it should reload the page
+                    elif "This site can’t be reached" in driver.page_source:
+                        log(f"Connection lost detected for {page_url}. Reconnecting VPN and retrying...")
+                        time.sleep(10)  # Allow VPN to reconnect
+                        #reload page 
+                        driver.get(page_url)
+                        continue    
                     
                     # If no issues, break the retry loop
                     break
@@ -53,8 +60,8 @@ def update_links(posts_dict, output_csv_path):
                 except Exception as e:
                     log(f"Error loading page {page_url}: {e}")
                     retries += 1
-                    reconnect_to_nordvpn()  # Reconnect VPN in case of persistent errors
                     time.sleep(10)
+                    driver.get(page_url)
 
             # If max retries reached, log the failure and move to the next page
             if retries == max_retries:
