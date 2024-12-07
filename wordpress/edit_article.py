@@ -95,23 +95,24 @@ def handle_edit_article(page_url, anchors, csv_file):
                 
 
             if not matched:
-                log(f"No matching broken href found for '{anchor_text}' on {page_url}.")
-                link_updates.append({
-                    "Page URL": page_url,
-                    "Anchor Text": anchor_text,
-                    "Broken HREF": broken_href,
-                    "New HREF": new_href,
-                    "Status": "HREF not found"
-                })
-            elif not matched and not same_anchor:
-                log(f"Anchor text '{anchor_text}' not found in the page.")
-                link_updates.append({
-                    "Page URL": page_url,
-                    "Anchor Text": anchor_text,
-                    "Broken HREF": broken_href,
-                    "New HREF": new_href,
-                    "Status": "anchor text not in the page"
-                })
+                if not same_anchor:
+                    log(f"Anchor text '{anchor_text}' not found on the page.")
+                    link_updates.append({
+                        "Page URL": page_url,
+                        "Anchor Text": anchor_text,
+                        "Broken HREF": broken_href,
+                        "New HREF": new_href,
+                        "Status": "anchor text not found"
+                    })
+                else:
+                    log(f"Anchor text '{anchor_text}' found but href '{broken_href}' not found.")
+                    link_updates.append({
+                        "Page URL": page_url,
+                        "Anchor Text": anchor_text,
+                        "Broken HREF": broken_href,
+                        "New HREF": new_href,
+                        "Status": "href not found"
+                    })
 
         # Write all results to the CSV in one go
         for result in link_updates:
