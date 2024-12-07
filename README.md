@@ -150,11 +150,4 @@ Create a feature branch (feature/your-feature-name).
 
 Commit your changes and submit a pull request.
 
-License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
-
-Contact
-
-For questions or support, please reach out to the project maintainer at your-email@example.com.
 
