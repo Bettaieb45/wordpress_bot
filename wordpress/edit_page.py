@@ -126,14 +126,15 @@ def update_button(driver, csv_file, anchors, page_url):
                         "Status": "Already Updated"
                     })
                     break
+
         if not matched:
             if not same_anchor:
                 log(f"Checking iframe for '{anchor_text}' on {page_url}.")
-                iframe_updated = update_iframe(driver, csv_file, [anchor], page_url)
+                iframe_updated, anchor_found = update_iframe(driver, csv_file, [anchor], page_url)
                 if iframe_updated:
                     links_updated = True
-                else:
-                    log(f"no matching anchor text found for '{anchor_text}' on {page_url}.")
+                elif not anchor_found:
+                    log(f"No matching anchor text found for '{anchor_text}' on {page_url}.")
                     link_updates.append({
                         "Page URL": page_url,
                         "Anchor Text": anchor_text,
@@ -141,21 +142,23 @@ def update_button(driver, csv_file, anchors, page_url):
                         "New HREF": new_href,
                         "Status": "Anchor text not found"
                     })
+                else:
+                    log(f"'{anchor_text}' already updated in iframe.")
             else:
                 log(f"No matching broken href found for '{anchor_text}' on {page_url}.")
                 link_updates.append({
-                "Page URL": page_url,
-                "Anchor Text": anchor_text,
-                "Broken HREF": broken_href,
-                "New HREF": new_href,
-                "Status": "HREF not found"
+                    "Page URL": page_url,
+                    "Anchor Text": anchor_text,
+                    "Broken HREF": broken_href,
+                    "New HREF": new_href,
+                    "Status": "HREF not found"
                 })
+
     # Write all results to the CSV in one go
     for result in link_updates:
         write_results_to_csv_row(result, csv_file)
 
     return links_updated
-
 
 
 def update_iframe(driver, csv_file, anchors, page_url):
@@ -183,25 +186,24 @@ def update_iframe(driver, csv_file, anchors, page_url):
         """
         anchors_on_page = driver.execute_script(js_script)
 
-        # Process and update links
         updated_links = []
         links_updated = False
+        anchor_found = False  # Flag to indicate if the anchor text is found at all
+
         for anchor in anchors:
             anchor_text = anchor["Anchor Text"]
             broken_href = anchor["Broken HREF"]
-            trimmed_current_href = get_domain_and_append_path(broken_href)
+            trimmed_broken_href = get_domain_and_append_path(broken_href)
             new_href = anchor["New Href"]
             trimmed_new_href = get_domain_and_append_path(new_href)
-            matched = False
-            same_anchor = False
+
             for page_anchor in anchors_on_page:
                 if normalize_text(page_anchor['text']) == normalize_text(anchor_text):
-                    same_anchor = True
+                    anchor_found = True  # Anchor text exists in iframe
                     current_href = page_anchor['href']
                     trimmed_current_href = get_domain_and_append_path(current_href)
-                    if current_href in {broken_href,trimmed_current_href} or trimmed_current_href in {broken_href,trimmed_current_href}:
-                        matched = True
-                        # Update the link
+
+                    if current_href in {broken_href, trimmed_broken_href} or trimmed_current_href in {broken_href, trimmed_broken_href}:
                         driver.execute_script("""
                             let anchor = document.querySelector(`a[data-id='${arguments[0]}']`);
                             let newHref = arguments[1];
@@ -221,8 +223,7 @@ def update_iframe(driver, csv_file, anchors, page_url):
                             "Status": "Updated"
                         })
                         break
-                    elif current_href in {new_href,trimmed_new_href} or trimmed_new_href in {new_href,trimmed_new_href}:
-                        matched = True
+                    elif current_href in {new_href, trimmed_new_href} or trimmed_current_href in {new_href, trimmed_new_href}:
                         log(f"'{anchor_text}' with href '{new_href}' is already updated.")
                         updated_links.append({
                             "Page URL": page_url,
@@ -232,18 +233,6 @@ def update_iframe(driver, csv_file, anchors, page_url):
                             "Status": "Already Updated"
                         })
                         break
-            if not matched:
-                if not same_anchor:
-                    log(f"not matching anchor text found in iframe for '{anchor_text}' on {page_url}.")
-                else :
-                    log(f"No matching broken href found in iframe for '{anchor_text}' on {page_url}.")
-                    updated_links.append({
-                        "Page URL": page_url,
-                        "Anchor Text": anchor_text,
-                        "Broken HREF": anchor["Broken HREF"],
-                        "New HREF": anchor["New Href"],
-                        "Status": "HREF not found"
-                    })
 
         # Write results to the CSV
         for result in updated_links:
@@ -255,4 +244,4 @@ def update_iframe(driver, csv_file, anchors, page_url):
     finally:
         driver.switch_to.default_content()  # Always return to the main content
         log("Switched back to the main content.")
-        return links_updated
+        return links_updated, anchor_found
