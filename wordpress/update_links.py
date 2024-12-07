@@ -18,6 +18,9 @@ def update_links(posts_dict, output_csv_path):
         {"text": "Edit Plant Records", "handler": handle_edit_article},
         {"text": "Edit List", "handler": handle_edit_article},
         {"text": "Edit Reviews", "handler": handle_edit_article},
+        {"text": "Edit Glossary", "handler": handle_edit_article},
+        {"text": "Edit Offer", "handler": handle_edit_article},
+        {"text": "Edit Recipe", "handler": handle_edit_article},
     ]
     max_retries = 5  # Max number of retries after reconnecting VPN
 
