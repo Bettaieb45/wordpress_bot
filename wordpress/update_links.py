@@ -78,7 +78,7 @@ def update_links(posts_dict, output_csv_path):
                 buttons = driver.find_elements(By.LINK_TEXT, action["text"])
                 if buttons:
                     log(f"'{action['text']}' button found for {page_url}.")
-                    retry(lambda: buttons[0].click())
+                    retry(lambda: buttons[0].click(),page_url,anchors,csv_file)
                     action["handler"](page_url, anchors, csv_file)
                     processed = True
                     break
