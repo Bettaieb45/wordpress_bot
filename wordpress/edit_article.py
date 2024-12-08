@@ -70,13 +70,14 @@ def handle_edit_article(page_url, anchors, csv_file):
             trimmed_new_href = get_domain_and_append_path(new_href)
             same_anchor = False
             matched = False
+            once = True
             for page_anchor in page_anchors:
                 if normalize(page_anchor["text"]) == normalize(anchor_text):
                     log(f"Found matching anchor text '{anchor_text}' on {page_url}.")
                     same_anchor = True
                     current_href = page_anchor["href"]
                     trimmed_current_href = get_domain_and_append_path(current_href)
-                    if current_href in {broken_href, trimmed_broken_href} or trimmed_current_href in {broken_href, trimmed_broken_href}:
+                    if current_href in {broken_href, trimmed_broken_href} or trimmed_current_href in {broken_href, trimmed_broken_href} and not once:
                         log(f"Found matching broken href '{broken_href}' on {page_url}.")
                         
                         # Switch to the correct iframe
@@ -104,6 +105,7 @@ def handle_edit_article(page_url, anchors, csv_file):
                         driver.switch_to.default_content()
                         links_updated = True
                         matched = True
+                        once = False
                         log(f"Replaced href '{current_href}' with '{new_href}' for '{anchor_text}'.")
                         link_updates.append({
                             "Page URL": page_url,
@@ -165,10 +167,10 @@ def handle_edit_article(page_url, anchors, csv_file):
                         if new_page_anchor["href"] == links["New HREF"]:
                             log(f"Link for '{links['Anchor Text']}' was successfully updated.")
                             break
-                else:
-                    log(f"Link for '{links['Anchor Text']}' was not updated.")
+                    else:
+                        log(f"Link for '{links['Anchor Text']}' was not updated.")
                     #change the status to not Updated if the link was not updated
-                    links["Status"] = "Not Updated"
+                        links["Status"] = "Not Updated"
         for results in link_updates:
             write_results_to_csv_row(results, csv_file)
     except Exception as e:
