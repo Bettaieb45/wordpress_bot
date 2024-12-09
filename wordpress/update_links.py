@@ -41,18 +41,9 @@ def update_links(posts_dict, output_csv_path):
                     WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
-
-                    # Check for specific 406 error or connection lost indicators
-                    if "406 Not Acceptable" in driver.page_source:
-                        log(f"406 error detected for {page_url}. Reconnecting VPN and retrying...")
-                        reconnect_to_nordvpn()  # Reconnect VPN
-                        retries += 1
-                        time.sleep(10)  # Allow VPN to reconnect
-                        continue
-                    
                     # If no issues, break the retry loop
                     break
-
+                    
                 except Exception as e:
                     log(f"Error loading page {page_url}: {e}")
                     retries += 1

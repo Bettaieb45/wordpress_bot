@@ -8,29 +8,27 @@ from utils.normalize import normalize_text as normalize
 from utils.append_csv import write_results_to_csv_row
 import time
 from utils.retry import retry
-def extract_links_from_page(driver):
-    # Locate all iframes on the page
-        iframes = driver.find_elements(By.TAG_NAME, "iframe")
-        log(f"Found {len(iframes)} iframe(s) on the page.")
-        
-        page_anchors = []  # To store all links from all iframes
-        
-        for index, iframe in enumerate(iframes):
-            try:
-                
-                
-                driver.switch_to.frame(iframe)
 
-                # Wait for iframe content to load
-                time.sleep(1)
-                
-                # Check if iframe has content
-                iframe_content = driver.execute_script("return document.body.innerHTML;")
-                if not iframe_content.strip():
-                    driver.switch_to.default_content()
-                    continue
 
-                js_script = """
+def extract_links_from_page(driver,page_url,anchors):
+    """Extracts all links from the main page and iframes."""
+    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+    log(f"Found {len(iframes)} iframe(s) on the page.")
+    
+    page_anchors = []  # To store all links from all iframes
+
+    for index, iframe in enumerate(iframes):
+        try:
+            driver.switch_to.frame(iframe)
+            log(f"Switched to iframe {index + 1}")
+
+            # Wait for iframe content to load
+            WebDriverWait(driver, 5).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+
+            # Collect anchor data
+            js_script = """
                 let updates = [];
                 document.querySelectorAll('a').forEach((anchor, index) => {
                     let uniqueId = `iframe-${arguments[0]}-anchor-${index}`;
@@ -42,91 +40,108 @@ def extract_links_from_page(driver):
                     });
                 });
                 return updates;
-                """
-                links_in_iframe = driver.execute_script(js_script, index)
-                # Append iframe index to each anchor
-                for link in links_in_iframe:
-                    link["iframe_index"] = index  # Store iframe index
-                    page_anchors.append(link)
-                
-                # Switch back to the main content after processing
-                driver.switch_to.default_content()
-            except Exception as iframe_error:
-                log(f"Error processing iframe {index + 1}: {iframe_error}")
-                driver.switch_to.default_content()
-        return page_anchors, iframes
+            """
+            links_in_iframe = driver.execute_script(js_script, index)
+            for link in links_in_iframe:
+                link["iframe_index"] = index  # Store iframe index
+                page_anchors.append(link)
+
+            driver.switch_to.default_content()
+        except Exception as iframe_error:
+            log(f"Error processing iframe {index + 1}: {iframe_error}")
+            driver.switch_to.default_content()
+            for anchor in anchors :
+                write_results_to_csv_row({
+                    "Page URL": page_url,
+                    "Anchor Text": anchor["Anchor Text"],
+                    "Broken HREF": anchor["Broken HREF"],
+                    "New HREF": anchor["New Href"],
+                    "Status": "Error processing iframe"
+                })
+            
+    
+    return page_anchors, iframes
+
+
 def handle_edit_article(page_url, anchors, csv_file):
+    """Handles editing an article by updating broken links."""
     log(f"Handling edit article for {page_url}")
     try:
-        page_anchors,iframes = extract_links_from_page(driver)
-        # Update links logic
+        # Extract all links from the page
+        page_anchors, iframes = extract_links_from_page(driver,page_url,anchors)
+        page_anchor_map = {normalize(anchor["text"]): anchor for anchor in page_anchors}
+
         link_updates = []
         links_updated = False
+
         for anchor in anchors:
             anchor_text = anchor["Anchor Text"]
-            broken_href = anchor["Broken HREF"]
-            trimmed_broken_href = get_domain_and_append_path(broken_href)
-            new_href = anchor["New Href"]
-            trimmed_new_href = get_domain_and_append_path(new_href)
-            same_anchor = False
+            broken_href = get_domain_and_append_path(anchor["Broken HREF"])
+            new_href = get_domain_and_append_path(anchor["New Href"])
+
+            same_anchor = normalize(anchor_text) in page_anchor_map
             matched = False
-            once = True
-            for page_anchor in page_anchors:
-                if normalize(page_anchor["text"]) == normalize(anchor_text):
-                    log(f"Found matching anchor text '{anchor_text}' on {page_url}.")
-                    same_anchor = True
-                    current_href = page_anchor["href"]
-                    trimmed_current_href = get_domain_and_append_path(current_href)
-                    if current_href in {broken_href, trimmed_broken_href} or trimmed_current_href in {broken_href, trimmed_broken_href} and not once:
-                        log(f"Found matching broken href '{broken_href}' on {page_url}.")
-                        
-                        # Switch to the correct iframe
-                        iframe_index = page_anchor["iframe_index"]
-                        log(f"Switching to iframe {iframe_index + 1} for updating anchor.")
-                        driver.switch_to.frame(iframes[iframe_index])
-                        
-                        # Update the anchor
-                        driver.execute_script("""
-                                let anchor = document.querySelector(`a[data-id='${arguments[0]}']`);
-                                if (anchor) {
-                                    let newHref = arguments[1];
-                                    anchor.href = newHref;
-                                    anchor.setAttribute("data-mce-href", newHref);
-                                    ['input', 'change', 'blur', 'keyup', 'mousedown', 'mouseup', 'focus'].forEach(event =>
-                                        anchor.dispatchEvent(new Event(event, { bubbles: true }))
-                                    );
-                                } else {
-                                    throw new Error(`Anchor with data-id '${arguments[0]}' not found.`);
-                                }
-                            """, page_anchor['id'], new_href)
-                        
-                        # Switch back to main content
-                        
-                        driver.switch_to.default_content()
-                        links_updated = True
-                        matched = True
-                        once = False
-                        log(f"Replaced href '{current_href}' with '{new_href}' for '{anchor_text}'.")
-                        link_updates.append({
-                            "Page URL": page_url,
-                            "Anchor Text": anchor_text,
-                            "Broken HREF": broken_href,
-                            "New HREF": new_href,
-                            "Status": "Updated"
-                        })
-                    elif current_href in {new_href, trimmed_new_href} or trimmed_current_href in {new_href, trimmed_new_href}:
-                        matched = True
-                        log(f"Link for '{anchor_text}' already updated.")
-                        link_updates.append({
-                            "Page URL": page_url,
-                            "Anchor Text": anchor_text,
-                            "Broken HREF": broken_href,
-                            "New HREF": new_href,
-                            "Status": "Already Updated"
-                        })
+
+            if same_anchor:
+                page_anchor = page_anchor_map[normalize(anchor_text)]
+                current_href = get_domain_and_append_path(page_anchor["href"])
+
+                if current_href in {broken_href, new_href}:
+                    log(f"Link for '{anchor_text}' already updated on {page_url}.")
+                    link_updates.append({
+                        "Page URL": page_url,
+                        "Anchor Text": anchor_text,
+                        "Broken HREF": broken_href,
+                        "New HREF": new_href,
+                        "Status": "Already Updated"
+                    })
+                    continue
+
+                iframe_index = page_anchor["iframe_index"]
+                try:
+                    driver.switch_to.frame(iframes[iframe_index])
+                    log(f"Switched to iframe {iframe_index + 1} for updating anchor.")
+
+                    # Update the anchor link
+                    driver.execute_script("""
+                        let anchor = document.querySelector(`a[data-id='${arguments[0]}']`);
+                        if (anchor) {
+                            let newHref = arguments[1];
+                            anchor.href = newHref;
+                            anchor.setAttribute("data-mce-href", newHref);
+                            ['input', 'change', 'blur', 'keyup', 'mousedown', 'mouseup', 'focus'].forEach(event =>
+                                anchor.dispatchEvent(new Event(event, { bubbles: true }))
+                            );
+                        } else {
+                            throw new Error(`Anchor with data-id '${arguments[0]}' not found.`);
+                        }
+                    """, page_anchor["id"], new_href)
+
+                    driver.switch_to.default_content()
+                    links_updated = True
+                    matched = True
+                    log(f"Replaced href '{current_href}' with '{new_href}' for '{anchor_text}'.")
+                    link_updates.append({
+                        "Page URL": page_url,
+                        "Anchor Text": anchor_text,
+                        "Broken HREF": broken_href,
+                        "New HREF": new_href,
+                        "Status": "Updated"
+                    })
+                except Exception as update_error:
+                    log(f"Error updating link for '{anchor_text}' on {page_url}: {update_error}")
+                    driver.switch_to.default_content()
+                    write_results_to_csv_row({
+                        "Page URL": page_url,
+                        "Anchor Text": anchor_text,
+                        "Broken HREF": broken_href,
+                        "New HREF": new_href,
+                        "Status": "Error updating link"
+                    }, csv_file)
+
             if not matched:
                 if not same_anchor:
-                    log(f"Link for '{anchor_text}' not found.")
+                    log(f"Anchor text '{anchor_text}' not found on {page_url}.")
                     link_updates.append({
                         "Page URL": page_url,
                         "Anchor Text": anchor_text,
@@ -143,35 +158,36 @@ def handle_edit_article(page_url, anchors, csv_file):
                         "New HREF": new_href,
                         "Status": "HREF not found"
                     })
-        
-            
+
         if links_updated:
-            # Update the post only if links were updated
-                driver.execute_script("window.scrollTo(0, 0)")
-                retry(lambda: WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "publish"))
-                ).click())
-                log(f"Post updated for {page_url}. Waiting for changes to propagate...")
-                WebDriverWait(driver, 5).until(
-                    EC.text_to_be_present_in_element((By.ID, "message"), "Post updated")
-                )
+            retry(lambda: WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.ID, "publish"))
+            ).click())
+            log(f"Post updated for {page_url}. Waiting for changes to propagate...")
+            WebDriverWait(driver, 5).until(
+                EC.text_to_be_present_in_element((By.ID, "message"), "Post updated")
+            )
         else:
             log(f"No links were updated for {page_url}. Skipping update action.")
-        
-        #verify if the links were updated
-        new_page_anchors,new_iframes = extract_links_from_page(driver)
-        for links in link_updates:
-            if links["Status"] == "Updated":
-                for new_page_anchor in new_page_anchors:
-                    if normalize(new_page_anchor["text"]) == normalize(links["Anchor Text"]):
-                        if new_page_anchor["href"] == links["New HREF"]:
-                            log(f"Link for '{links['Anchor Text']}' was successfully updated.")
-                            break
-                    else:
-                        log(f"Link for '{links['Anchor Text']}' was not updated.")
-                    #change the status to not Updated if the link was not updated
-                        links["Status"] = "Not Updated"
-        for results in link_updates:
-            write_results_to_csv_row(results, csv_file)
+
+        # Verify link updates
+        new_page_anchors, _ = extract_links_from_page(driver)
+        for update in link_updates:
+            if update["Status"] == "Updated":
+                for new_anchor in new_page_anchors:
+                    if normalize(new_anchor["text"]) == normalize(update["Anchor Text"]) and \
+                            new_anchor["href"] == update["New HREF"]:
+                        log(f"Link for '{update['Anchor Text']}' was successfully updated.")
+                        break
+                else:
+                    log(f"Link for '{update['Anchor Text']}' was not updated.")
+                    update["Status"] = "Not Updated"
+
+        # Write results to CSV
+        for result in link_updates:
+            write_results_to_csv_row(result, csv_file)
+
     except Exception as e:
         log(f"Error in handling edit article for {page_url}: {e}")
+        for result in link_updates:
+            write_results_to_csv_row(result, csv_file)

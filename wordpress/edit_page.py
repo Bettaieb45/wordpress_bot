@@ -14,7 +14,7 @@ from utils.normalize import normalize_text
 def handle_edit_page(page_url, anchors, csv_file):
     log(f"Processing 'Edit Page' for Gutenberg: {page_url}")
     try:
-        # Wait for Gutenberg editor to load
+        # Wait for Gutenb   erg editor to load
         log("Waiting for Gutenberg editor to load...")
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, ".edit-post-header"))
@@ -24,6 +24,16 @@ def handle_edit_page(page_url, anchors, csv_file):
         process_gutenberg_page(page_url, anchors, csv_file)
     except Exception as e:
         log(f"Error loading Gutenberg editor for {page_url}: {e}")
+        for anchor in anchors:
+            write_results_to_csv_row({
+                "Page URL": page_url,
+                "Anchor Text": anchor["Anchor Text"],
+                "Broken HREF": anchor["Broken HREF"],
+                "New HREF": anchor["New Href"],
+                "Status": "Error loading Gutenberg"
+            }, csv_file)
+            
+        
     log(f"Completed processing 'Edit Page' for Gutenberg: {page_url}")
 
 # Process ACF fields on Gutenberg pages
@@ -55,6 +65,15 @@ def process_gutenberg_page(page_url, anchors, csv_file):
             log(f"No changes made to the page: {page_url}")
     except Exception as e:
         log(f"Error processing Gutenberg page {page_url}: {e}")
+        for anchor in anchors :
+            write_results_to_csv_row({
+                "Page URL": page_url,
+                "Anchor Text": anchor["Anchor Text"],
+                "Broken HREF": anchor["Broken HREF"],
+                "New HREF": anchor["New Href"],
+                "Status": "Error processing Gutenberg"
+            }, csv_file)
+        
 
 def update_button(driver, csv_file, anchors, page_url):
     link_updates = []  # To collect results for CSV writing
@@ -114,6 +133,13 @@ def update_button(driver, csv_file, anchors, page_url):
                         })
                     except Exception as e:
                         log(f"Failed to update href for '{anchor_text}': {e}")
+                        write_results_to_csv_row({
+                            "Page URL": page_url,
+                            "Anchor Text": anchor_text,
+                            "Broken HREF": broken_href,
+                            "New HREF": new_href,
+                            "Status": "Failed to update"
+                        }, csv_file)
                     break
                 elif current_href in {new_href, trimmed_new_href} or trimmed_current_href in {new_href, trimmed_new_href}:
                     matched = True
@@ -240,6 +266,14 @@ def update_iframe(driver, csv_file, anchors, page_url):
 
     except Exception as e:
         log(f"Error processing iframe for {page_url}: {e}")
+        for anchor in anchors:
+            write_results_to_csv_row({
+                "Page URL": page_url,
+                "Anchor Text": anchor["Anchor Text"],
+                "Broken HREF": anchor["Broken HREF"],
+                "New HREF": anchor["New Href"],
+                "Status": "Error processing iframe"
+            }, csv_file)
 
     finally:
         driver.switch_to.default_content()  # Always return to the main content
