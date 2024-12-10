@@ -77,7 +77,8 @@ def handle_edit_article(page_url, anchors, csv_file):
         for anchor in anchors:
             anchor_text = anchor["Anchor Text"]
             broken_href = get_domain_and_append_path(anchor["Broken HREF"])
-            new_href = get_domain_and_append_path(anchor["New Href"])
+            new_href = anchor["New Href"]
+            trimmed_new_href = get_domain_and_append_path(new_href)
 
             same_anchor = normalize(anchor_text) in page_anchor_map
             matched = False
@@ -86,7 +87,7 @@ def handle_edit_article(page_url, anchors, csv_file):
                 page_anchor = page_anchor_map[normalize(anchor_text)]
                 current_href = get_domain_and_append_path(page_anchor["href"])
 
-                if current_href in {broken_href, new_href}:
+                if current_href == trimmed_new_href:
                     log(f"Link for '{anchor_text}' already updated on {page_url}.")
                     link_updates.append({
                         "Page URL": page_url,
@@ -95,15 +96,16 @@ def handle_edit_article(page_url, anchors, csv_file):
                         "New HREF": new_href,
                         "Status": "Already Updated"
                     })
+                    matched = True
                     continue
+                elif current_href == broken_href:
+                    iframe_index = page_anchor["iframe_index"]
+                    try:
+                        driver.switch_to.frame(iframes[iframe_index])
+                        log(f"Switched to iframe {iframe_index + 1} for updating anchor.")
 
-                iframe_index = page_anchor["iframe_index"]
-                try:
-                    driver.switch_to.frame(iframes[iframe_index])
-                    log(f"Switched to iframe {iframe_index + 1} for updating anchor.")
-
-                    # Update the anchor link
-                    driver.execute_script("""
+                        # Update the anchor link
+                        driver.execute_script("""
                         let anchor = document.querySelector(`a[data-id='${arguments[0]}']`);
                         if (anchor) {
                             let newHref = arguments[1];
@@ -117,28 +119,29 @@ def handle_edit_article(page_url, anchors, csv_file):
                         }
                     """, page_anchor["id"], new_href)
 
-                    driver.switch_to.default_content()
-                    links_updated = True
-                    matched = True
-                    log(f"Replaced href '{current_href}' with '{new_href}' for '{anchor_text}'.")
-                    link_updates.append({
-                        "Page URL": page_url,
-                        "Anchor Text": anchor_text,
-                        "Broken HREF": broken_href,
-                        "New HREF": new_href,
-                        "Status": "Updated"
-                    })
-                except Exception as update_error:
-                    log(f"Error updating link for '{anchor_text}' on {page_url}: {update_error}")
-                    driver.switch_to.default_content()
-                    write_results_to_csv_row({
+                        driver.switch_to.default_content()
+                        links_updated = True
+                        matched = True
+                        log(f"Replaced href '{current_href}' with '{new_href}' for '{anchor_text}'.")
+                        link_updates.append({
+                            "Page URL": page_url,
+                            "Anchor Text": anchor_text,
+                            "Broken HREF": broken_href,
+                            "New HREF": new_href,
+                            "Status": "Updated"
+                        })
+                    except Exception as update_error:
+                        log(f"Error updating link for '{anchor_text}' on {page_url}: {update_error}")
+                        driver.switch_to.default_content()
+                        write_results_to_csv_row({
                         "Page URL": page_url,
                         "Anchor Text": anchor_text,
                         "Broken HREF": broken_href,
                         "New HREF": new_href,
                         "Status": "Error updating link"
-                    }, csv_file)
+                        }, csv_file)
 
+                
             if not matched:
                 if not same_anchor:
                     log(f"Anchor text '{anchor_text}' not found on {page_url}.")
